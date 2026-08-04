@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, QrCode, Save, Send, Upload } from "lucide-react";
+import { CheckCircle2, QrCode, Save, Send, Upload } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
@@ -96,7 +96,6 @@ function SettingsForm({ initial, refresh }: { initial: SettingsData; refresh: ()
             <div className="space-y-3">
               <Label htmlFor="transfer-user">支付宝用户 ID</Label>
               <Input id="transfer-user" inputMode="numeric" value={transferUserId} onChange={(event) => setTransferUserId(event.target.value.trim())} placeholder="2088…" />
-              <div className="flex gap-2 rounded-md border border-destructive/30 bg-destructive/5 p-3 text-xs leading-5 text-muted"><AlertTriangle className="mt-0.5 size-4 shrink-0 text-destructive" /><span>支付宝官方 V3 文档明确说明 <code className="font-mono">trans_memo</code> 不可依赖用于对账。此模式仅为兼容用途，建议优先使用经营码。</span></div>
             </div>
           </div>
         </CardContent>
