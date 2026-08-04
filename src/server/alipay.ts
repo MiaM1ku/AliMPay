@@ -22,6 +22,10 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === "object" ? value as Record<string, unknown> : {};
 }
 
+export function prepareAlipaySdkPem(value: string) {
+  return value.trim();
+}
+
 export class OfficialAlipayProvider implements AccountLogProvider {
   constructor(private readonly database: AppDatabase) {}
 
@@ -35,8 +39,8 @@ export class OfficialAlipayProvider implements AccountLogProvider {
 
     const sdk = new AlipaySdk({
       appId,
-      privateKey,
-      alipayPublicKey,
+      privateKey: prepareAlipaySdkPem(privateKey),
+      alipayPublicKey: prepareAlipaySdkPem(alipayPublicKey),
       signType: "RSA2",
       keyType: "PKCS8",
       endpoint: getSetting(this.database, "alipay_endpoint", "https://openapi.alipay.com"),
