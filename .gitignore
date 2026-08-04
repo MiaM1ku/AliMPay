@@ -1,41 +1,9 @@
-# Composer
-/vendor/
-composer.lock
-
-# Environment configuration
-.env
-.env.local
-.env.*.local
-
-# Logs
-/logs/
-*.log
-
-# IDE
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Cache
-/cache/
-/tmp/
-
-# Test coverage
-/coverage/
-
-# Node modules (if adding frontend)
 node_modules/
-npm-debug.log
-yarn-error.log
-
-# Build artifacts
-/build/
-/dist/ 
-
-alipayPublicKey_RSA2.txt
+dist/
+coverage/
+playwright-report/
+test-results/
+data/
+.env
+*.log
+.DS_Store

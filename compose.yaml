@@ -1,0 +1,18 @@
+services:
+  alimpay:
+    build: .
+    image: alimpay-bun:local
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      DATA_DIR: /data
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:?请设置 PUBLIC_BASE_URL}
+      APP_MASTER_KEY: ${APP_MASTER_KEY:-}
+      TRUST_PROXY: "true"
+      ALLOW_PRIVATE_CALLBACKS: "false"
+    volumes:
+      - ./data:/data
