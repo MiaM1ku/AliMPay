@@ -38,8 +38,12 @@ describe("signature primitives", () => {
     const payload = { pid: "1001", timestamp: "1721206072", amount: "1.00" };
     const first = rsaSign(payload, pair.privateKey);
     const second = rsaSign(payload, pair.privateKey);
+    const barePrivateKey = pair.privateKey.replace(/-----BEGIN PRIVATE KEY-----|-----END PRIVATE KEY-----|\s/g, "");
+    const barePublicKey = pair.publicKey.replace(/-----BEGIN PUBLIC KEY-----|-----END PUBLIC KEY-----|\s/g, "");
+    const bareSignature = rsaSign(payload, barePrivateKey);
     expect(first).toBe(second);
     expect(rsaVerify({ ...payload, sign: first, sign_type: "RSA" }, pair.publicKey)).toBe(true);
+    expect(rsaVerify({ ...payload, sign: bareSignature, sign_type: "RSA" }, barePublicKey)).toBe(true);
     expect(rsaVerify({ ...payload, amount: "2.00", sign: first }, pair.publicKey)).toBe(false);
   });
 });

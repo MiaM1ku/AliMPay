@@ -25,16 +25,27 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   await page.getByRole("button", { name: "生成应用密钥" }).click();
   const disclosure = page.getByRole("dialog");
   await expect(disclosure.getByText("支付宝应用密钥")).toBeVisible();
+  const privateKey = await disclosure.locator("textarea").nth(0).inputValue();
   const publicKey = await disclosure.locator("textarea").nth(1).inputValue();
+  expect(privateKey).toMatch(/^[A-Za-z\d+/]+=*$/);
+  expect(privateKey).not.toContain("BEGIN PRIVATE KEY");
+  expect(privateKey).not.toContain("\n");
   expect(publicKey).toMatch(/^[A-Za-z\d+/]+=*$/);
   expect(publicKey).not.toContain("BEGIN PUBLIC KEY");
   expect(publicKey).not.toContain("\n");
   await disclosure.getByRole("button", { name: "关闭" }).click();
+  await page.getByLabel("导入已有应用私钥").fill(privateKey);
+  await page.getByRole("button", { name: "导入私钥" }).click();
+  await expect(page.getByText("应用私钥已导入")).toBeVisible();
 
   await page.getByRole("button", { name: "生成商户密钥对" }).click();
   const merchantDisclosure = page.getByRole("dialog");
   await expect(merchantDisclosure.getByText(/私钥只在本次响应中展示/)).toBeVisible();
+  const merchantPrivateKey = await merchantDisclosure.locator("textarea").nth(0).inputValue();
   const merchantPublicKey = await merchantDisclosure.locator("textarea").nth(1).inputValue();
+  expect(merchantPrivateKey).toMatch(/^[A-Za-z\d+/]+=*$/);
+  expect(merchantPrivateKey).not.toContain("BEGIN PRIVATE KEY");
+  expect(merchantPrivateKey).not.toContain("\n");
   expect(merchantPublicKey).toMatch(/^[A-Za-z\d+/]+=*$/);
   expect(merchantPublicKey).not.toContain("BEGIN PUBLIC KEY");
   await merchantDisclosure.getByRole("button", { name: "关闭" }).click();

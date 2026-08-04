@@ -1,5 +1,5 @@
 import { AlertTriangle, Download, Eye, KeyRound, RefreshCw, Upload } from "lucide-react";
-import { useState } from "react";
+import { useId, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
 import type { PublicSettings } from "@/shared/contracts";
@@ -24,6 +24,9 @@ interface KeySettings extends PublicSettings {
 interface KeyDisclosure {
   title: string;
   privateKey?: string;
+  privateKeyLabel?: string;
+  privateKeyHelp?: string;
+  privateKeyFilename?: string;
   publicKey?: string;
   publicKeyLabel?: string;
   publicKeyHelp?: string;
@@ -52,14 +55,23 @@ function toBarePublicKey(value: string) {
     .replace(/\s+/g, "");
 }
 
+function toBarePrivateKey(value: string) {
+  return value
+    .replace(/-----BEGIN (?:RSA )?PRIVATE KEY-----/g, "")
+    .replace(/-----END (?:RSA )?PRIVATE KEY-----/g, "")
+    .replace(/\s+/g, "");
+}
+
 function DisclosureDialog({ value, onClose }: { value: KeyDisclosure | null; onClose: () => void }) {
+  const privateKeyId = useId();
+  const publicKeyId = useId();
   return (
     <Dialog open={Boolean(value)} onOpenChange={(open) => { if (!open) onClose(); }}>
       <DialogContent className="max-w-2xl">
         <DialogTitle>{value?.title}</DialogTitle>
         <DialogDescription>{value?.oneTime ? "私钥只在本次响应中展示，关闭前请复制并安全保存。" : "请将密钥存放在受控的密码管理器中。"}</DialogDescription>
-        {value?.privateKey ? <div className="mt-4 space-y-2"><div className="text-xs font-medium">私钥（PKCS#8）</div><Textarea value={value.privateKey} readOnly rows={9} /><div className="flex gap-2"><CopyButton value={value.privateKey} label="复制私钥" /><Button variant="outline" size="sm" onClick={() => download("private-key.pem", value.privateKey!)}><Download />下载</Button></div></div> : null}
-        {value?.publicKey ? <div className="mt-4 space-y-2"><div className="text-xs font-medium">{value.publicKeyLabel ?? "公钥（SPKI）"}</div><Textarea value={value.publicKey} readOnly rows={6} /><CopyButton value={value.publicKey} label="复制公钥" />{value.publicKeyHelp ? <p className="text-xs leading-5 text-muted">{value.publicKeyHelp}</p> : null}</div> : null}
+        {value?.privateKey ? <div className="space-y-2 pt-2"><Label htmlFor={privateKeyId}>{value.privateKeyLabel ?? "私钥（PKCS#8 单行 Base64）"}</Label><Textarea id={privateKeyId} className="font-mono text-xs" value={value.privateKey} readOnly rows={8} /><div className="flex gap-2"><CopyButton value={value.privateKey} label="复制私钥" /><Button variant="outline" size="sm" onClick={() => download(value.privateKeyFilename ?? "private-key.txt", value.privateKey!)}><Download />下载 TXT</Button></div>{value.privateKeyHelp ? <p className="text-xs leading-5 text-muted">{value.privateKeyHelp}</p> : null}</div> : null}
+        {value?.publicKey ? <div className="space-y-2 pt-2"><Label htmlFor={publicKeyId}>{value.publicKeyLabel ?? "公钥（SPKI 单行 Base64）"}</Label><Textarea id={publicKeyId} className="font-mono text-xs" value={value.publicKey} readOnly rows={6} /><CopyButton value={value.publicKey} label="复制公钥" />{value.publicKeyHelp ? <p className="text-xs leading-5 text-muted">{value.publicKeyHelp}</p> : null}</div> : null}
       </DialogContent>
     </Dialog>
   );
@@ -122,14 +134,14 @@ export function KeyCenterPage() {
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" onClick={async () => {
                 const result = await apiFetch<{ pid: string; key: string }>("/admin-api/keys/v1/reveal", { method: "POST" });
-                setDisclosure({ title: "V1 商户凭据", privateKey: `PID=${result.pid}\nKEY=${result.key}` });
+                setDisclosure({ title: "V1 商户凭据", privateKey: `PID=${result.pid}\nKEY=${result.key}`, privateKeyLabel: "PID 与 MD5 key", privateKeyFilename: "v1-credentials.txt" });
               }}><Eye />查看凭据</Button>
               <Button variant="danger" onClick={() => setConfirmation({
                 title: "重新生成 V1 key",
                 description: "旧 key 会立即失效，所有 V1 客户端都必须更新配置。",
                 action: async () => {
                   const result = await call<{ pid: string; key: string }>("/admin-api/keys/v1/regenerate", "V1 key 已更新");
-                  if (result) setDisclosure({ title: "新的 V1 商户凭据", privateKey: `PID=${result.pid}\nKEY=${result.key}` });
+                  if (result) setDisclosure({ title: "新的 V1 商户凭据", privateKey: `PID=${result.pid}\nKEY=${result.key}`, privateKeyLabel: "PID 与 MD5 key", privateKeyFilename: "v1-credentials.txt" });
                 },
               })}><RefreshCw />重新生成</Button>
             </div>
@@ -151,7 +163,10 @@ export function KeyCenterPage() {
                 const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/v2/platform/regenerate", "V2 平台密钥已轮换");
                 if (result) setDisclosure({
                   title: "新的 V2 平台密钥",
-                  privateKey: result.private_key,
+                  privateKey: toBarePrivateKey(result.private_key),
+                  privateKeyLabel: "平台私钥（PKCS#8 单行 Base64）",
+                  privateKeyHelp: "服务端已加密保存；请勿提供给商户或第三方。",
+                  privateKeyFilename: "v2-platform-private-key.txt",
                   publicKey: toBarePublicKey(result.public_key),
                   publicKeyLabel: "平台公钥（单行 Base64）",
                   publicKeyHelp: "提供给商户程序验签；旧平台公钥已经失效。",
@@ -169,7 +184,10 @@ export function KeyCenterPage() {
               const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/v2/merchant/generate", "商户密钥已生成");
               if (result) setDisclosure({
                 title: "V2 商户密钥",
-                privateKey: result.private_key,
+                privateKey: toBarePrivateKey(result.private_key),
+                privateKeyLabel: "商户私钥（PKCS#8 单行 Base64）",
+                privateKeyHelp: "由商户程序用于签名请求；服务端不会保存，也不会再次展示。",
+                privateKeyFilename: "v2-merchant-private-key.txt",
                 publicKey: toBarePublicKey(result.public_key),
                 publicKeyLabel: "商户公钥（单行 Base64）",
                 publicKeyHelp: "服务端只保存这把公钥；商户私钥关闭后不会再次展示。",
@@ -191,14 +209,17 @@ export function KeyCenterPage() {
               const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/alipay/generate", "支付宝应用密钥已生成");
               if (result) setDisclosure({
                 title: "支付宝应用密钥",
-                privateKey: result.private_key,
+                privateKey: toBarePrivateKey(result.private_key),
+                privateKeyLabel: "应用私钥（PKCS#8 单行 Base64）",
+                privateKeyHelp: "程序已加密保存；请作为应用密钥备份，不要上传到支付宝开放平台。",
+                privateKeyFilename: "alipay-app-private-key.txt",
                 publicKey: toBarePublicKey(result.public_key),
                 publicKeyLabel: "应用公钥（支付宝上传格式）",
                 publicKeyHelp: "已自动去掉 PEM 头尾和换行，可直接填写到支付宝开放平台的应用公钥配置中。",
               });
             }}><KeyRound />生成应用密钥</Button>
-            <div className="border-t pt-4"><div className="mb-2 text-xs font-medium">或导入已有应用私钥</div><Textarea value={alipayPrivateImport} onChange={(event) => setAlipayPrivateImport(event.target.value)} rows={6} placeholder="-----BEGIN PRIVATE KEY-----" /><Button className="mt-2" variant="outline" disabled={!alipayPrivateImport} onClick={async () => {
-              try { await apiFetch("/admin-api/keys/alipay/private", { method: "PUT", ...jsonBody({ private_key: alipayPrivateImport }) }); toast.success("应用私钥已导入"); setAlipayPrivateImport(""); await mutate(); }
+            <div className="space-y-3 border-t pt-4"><Label htmlFor="alipay-private-import">导入已有应用私钥</Label><Textarea id="alipay-private-import" className="font-mono text-xs" aria-describedby="alipay-private-import-help" value={alipayPrivateImport} onChange={(event) => setAlipayPrivateImport(event.target.value)} rows={6} placeholder="MIIEvQIBADANBgkqhkiG9w0BAQEFAASC..." /><p id="alipay-private-import-help" className="text-xs leading-5 text-muted">支持 PKCS#8 单行 Base64 或带 BEGIN/END 的完整 PEM。</p><Button variant="outline" disabled={!alipayPrivateImport.trim()} onClick={async () => {
+              try { await apiFetch("/admin-api/keys/alipay/private", { method: "PUT", ...jsonBody({ private_key: alipayPrivateImport.trim() }) }); toast.success("应用私钥已导入"); setAlipayPrivateImport(""); await mutate(); }
               catch (error) { toast.error(error instanceof Error ? error.message : "导入失败"); }
             }}><Upload />导入私钥</Button></div>
           </CardContent>
