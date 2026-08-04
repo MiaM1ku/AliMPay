@@ -10,6 +10,7 @@ import { Badge } from "@/web/components/ui/badge";
 import { Button } from "@/web/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/web/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/web/components/ui/dialog";
+import { Label } from "@/web/components/ui/label";
 import { Loading } from "@/web/components/ui/loading";
 import { Textarea } from "@/web/components/ui/textarea";
 
@@ -44,7 +45,7 @@ function download(name: string, value: string) {
   URL.revokeObjectURL(url);
 }
 
-function toAlipayUploadPublicKey(value: string) {
+function toBarePublicKey(value: string) {
   return value
     .replace(/-----BEGIN PUBLIC KEY-----/g, "")
     .replace(/-----END PUBLIC KEY-----/g, "")
@@ -91,7 +92,9 @@ export function KeyCenterPage() {
   const [alipayPrivateImport, setAlipayPrivateImport] = useState("");
   const [merchantPublicImport, setMerchantPublicImport] = useState("");
   if (isLoading || !data) return <Loading label="正在读取密钥状态" />;
-  const alipayUploadPublicKey = toAlipayUploadPublicKey(data.alipay_app_public_key);
+  const v2PlatformPublicKey = toBarePublicKey(data.v2_platform_public_key);
+  const v2MerchantPublicKey = toBarePublicKey(data.v2_merchant_public_key);
+  const alipayUploadPublicKey = toBarePublicKey(data.alipay_app_public_key);
 
   async function call<T>(path: string, title: string) {
     try {
@@ -136,13 +139,23 @@ export function KeyCenterPage() {
         <Card>
           <CardHeader><div className="flex items-center justify-between"><CardTitle>易支付 V2 · 平台密钥</CardTitle><Badge variant={data.has_v2_platform_private_key ? "success" : "danger"}>{data.has_v2_platform_private_key ? "已配置" : "缺失"}</Badge></div><CardDescription>平台私钥签名接口响应与支付通知，商户使用平台公钥验签。</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            <Textarea value={data.v2_platform_public_key} readOnly rows={6} />
-            <div className="flex flex-wrap gap-2"><CopyButton value={data.v2_platform_public_key} label="复制平台公钥" /><Button variant="danger" onClick={() => setConfirmation({
+            <div className="space-y-2">
+              <Label htmlFor="v2-platform-public-key">平台公钥（单行 Base64）</Label>
+              <Textarea id="v2-platform-public-key" className="font-mono text-xs" value={v2PlatformPublicKey} readOnly rows={5} />
+              <p className="text-xs leading-5 text-muted">提供给商户程序验签，可直接用于只接受 <code className="font-mono">MIIB...</code> 格式的客户端。</p>
+            </div>
+            <div className="flex flex-wrap gap-2"><CopyButton value={v2PlatformPublicKey} label="复制平台公钥" /><Button variant="danger" onClick={() => setConfirmation({
               title: "轮换 V2 平台密钥",
               description: "旧平台公钥会立即失效，所有 V2 商户都必须同步新公钥。",
               action: async () => {
                 const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/v2/platform/regenerate", "V2 平台密钥已轮换");
-                if (result) setDisclosure({ title: "新的 V2 平台密钥", privateKey: result.private_key, publicKey: result.public_key });
+                if (result) setDisclosure({
+                  title: "新的 V2 平台密钥",
+                  privateKey: result.private_key,
+                  publicKey: toBarePublicKey(result.public_key),
+                  publicKeyLabel: "平台公钥（单行 Base64）",
+                  publicKeyHelp: "提供给商户程序验签；旧平台公钥已经失效。",
+                });
               },
             })}><RefreshCw />轮换密钥</Button></div>
           </CardContent>
@@ -151,13 +164,20 @@ export function KeyCenterPage() {
         <Card>
           <CardHeader><div className="flex items-center justify-between"><CardTitle>易支付 V2 · 商户密钥</CardTitle><Badge variant={data.v2_merchant_public_key ? "success" : "danger"}>{data.v2_merchant_public_key ? "公钥已登记" : "未登记"}</Badge></div><CardDescription>商户私钥签名请求；服务端只保存商户公钥。</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {data.v2_merchant_public_key ? <Textarea value={data.v2_merchant_public_key} readOnly rows={5} /> : null}
+            {v2MerchantPublicKey ? <div className="space-y-2"><Label htmlFor="v2-merchant-public-key">当前商户公钥（单行 Base64）</Label><Textarea id="v2-merchant-public-key" className="font-mono text-xs" value={v2MerchantPublicKey} readOnly rows={5} /></div> : null}
             <Button onClick={async () => {
               const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/v2/merchant/generate", "商户密钥已生成");
-              if (result) setDisclosure({ title: "V2 商户密钥", privateKey: result.private_key, publicKey: result.public_key, oneTime: true });
+              if (result) setDisclosure({
+                title: "V2 商户密钥",
+                privateKey: result.private_key,
+                publicKey: toBarePublicKey(result.public_key),
+                publicKeyLabel: "商户公钥（单行 Base64）",
+                publicKeyHelp: "服务端只保存这把公钥；商户私钥关闭后不会再次展示。",
+                oneTime: true,
+              });
             }}><KeyRound />生成商户密钥对</Button>
-            <div className="border-t pt-4"><div className="mb-2 text-xs font-medium">或导入已有商户公钥</div><Textarea value={merchantPublicImport} onChange={(event) => setMerchantPublicImport(event.target.value)} rows={5} placeholder="-----BEGIN PUBLIC KEY-----" /><Button className="mt-2" variant="outline" disabled={!merchantPublicImport} onClick={async () => {
-              try { await apiFetch("/admin-api/keys/v2/merchant", { method: "PUT", ...jsonBody({ public_key: merchantPublicImport }) }); toast.success("商户公钥已导入"); setMerchantPublicImport(""); await mutate(); }
+            <div className="space-y-3 border-t pt-4"><Label htmlFor="v2-merchant-public-import">导入已有商户公钥</Label><Textarea id="v2-merchant-public-import" className="font-mono text-xs" aria-describedby="v2-merchant-public-import-help" value={merchantPublicImport} onChange={(event) => setMerchantPublicImport(event.target.value)} rows={5} placeholder="MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8A..." /><p id="v2-merchant-public-import-help" className="text-xs leading-5 text-muted">支持单行 Base64 或带 BEGIN/END 的完整 PEM；导入后立即用于验证商户请求签名。</p><Button variant="outline" disabled={!merchantPublicImport.trim()} onClick={async () => {
+              try { await apiFetch("/admin-api/keys/v2/merchant", { method: "PUT", ...jsonBody({ public_key: merchantPublicImport.trim() }) }); toast.success("商户公钥已导入"); setMerchantPublicImport(""); await mutate(); }
               catch (error) { toast.error(error instanceof Error ? error.message : "导入失败"); }
             }}><Upload />导入公钥</Button></div>
           </CardContent>
@@ -172,7 +192,7 @@ export function KeyCenterPage() {
               if (result) setDisclosure({
                 title: "支付宝应用密钥",
                 privateKey: result.private_key,
-                publicKey: toAlipayUploadPublicKey(result.public_key),
+                publicKey: toBarePublicKey(result.public_key),
                 publicKeyLabel: "应用公钥（支付宝上传格式）",
                 publicKeyHelp: "已自动去掉 PEM 头尾和换行，可直接填写到支付宝开放平台的应用公钥配置中。",
               });
