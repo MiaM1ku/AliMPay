@@ -1,5 +1,5 @@
 import { Hono, type Context } from "hono";
-import type { OrderRecord } from "../shared/contracts";
+import type { OrderRecord, TransferLinkLayer } from "../shared/contracts";
 import type { PaymentScanner } from "./alipay";
 import { getSecret } from "./config";
 import { getSetting, type AppDatabase } from "./db";
@@ -172,7 +172,11 @@ export function createEasyPayRoutes(database: AppDatabase, scanner: PaymentScann
       if (order.collection_mode === "business_qr") result.payurl = checkoutUrl(database, order);
       else {
         const { createTransferUri } = await import("./orders");
-        result.qrcode = createTransferUri(order, getSetting(database, "transfer_user_id", ""));
+        result.qrcode = createTransferUri(
+          order,
+          getSetting(database, "transfer_user_id", ""),
+          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+        );
       }
       return c.json(result);
     } catch (error) {
@@ -242,7 +246,11 @@ export function createEasyPayRoutes(database: AppDatabase, scanner: PaymentScann
       if (order.collection_mode === "transfer") {
         const { createTransferUri } = await import("./orders");
         payType = "qrcode";
-        payInfo = createTransferUri(order, getSetting(database, "transfer_user_id", ""));
+        payInfo = createTransferUri(
+          order,
+          getSetting(database, "transfer_user_id", ""),
+          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+        );
       }
       return c.json(signedV2(database, {
         code: 0,

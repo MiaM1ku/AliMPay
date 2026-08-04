@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import type { AccountLogPage, AccountLogProvider } from "../src/server/alipay";
 import { PaymentScanner } from "../src/server/alipay";
-import type { AppDatabase } from "../src/server/db";
+import { setSetting, type AppDatabase } from "../src/server/db";
 import { createApp } from "../src/server/index";
 import { NotificationWorker } from "../src/server/notifications";
 import { md5Sign, rsaSign, rsaVerify } from "../src/server/security";
@@ -22,8 +22,9 @@ function form(parameters: Record<string, string>) {
 
 describe("EasyPay V1 contract", () => {
   it("creates idempotent orders and requires the key for queries", async () => {
-    const configured = configuredDatabase();
+    const configured = configuredDatabase("transfer");
     database = configured.database;
+    setSetting(database, "transfer_link_layer", 4);
     const scanner = new PaymentScanner(database, new EmptyProvider());
     const { app } = createApp({ database, scanner, notifications: new NotificationWorker(database, fetch) });
     const unsigned = {
@@ -36,7 +37,7 @@ describe("EasyPay V1 contract", () => {
     expect(first.status).toBe(200);
     const firstBody = await first.json() as Record<string, unknown>;
     expect(firstBody.code).toBe(1);
-    expect(firstBody.payurl).toMatch(/^http:\/\/localhost\/checkout\//);
+    expect(firstBody.qrcode).toMatch(/^https:\/\/render\.alipay\.com\/p\/s\/i\?scheme=/);
     const secondBody = await (await app.request("http://localhost/mapi.php", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form(signed) })).json() as Record<string, unknown>;
     expect(secondBody.trade_no).toBe(firstBody.trade_no);
 
@@ -52,8 +53,9 @@ describe("EasyPay V1 contract", () => {
 
 describe("EasyPay V2 contract", () => {
   it("verifies merchant requests and signs responses and errors", async () => {
-    const configured = configuredDatabase();
+    const configured = configuredDatabase("transfer");
     database = configured.database;
+    setSetting(database, "transfer_link_layer", 4);
     const scanner = new PaymentScanner(database, new EmptyProvider());
     const { app } = createApp({ database, scanner, notifications: new NotificationWorker(database, fetch) });
     const unsigned = {
@@ -66,7 +68,8 @@ describe("EasyPay V2 contract", () => {
     const response = await app.request("http://localhost/api/pay/create", { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: form(signed) });
     const body = await response.json() as Record<string, string | number>;
     expect(body.code).toBe(0);
-    expect(body.pay_type).toBe("jump");
+    expect(body.pay_type).toBe("qrcode");
+    expect(body.pay_info).toMatch(/^https:\/\/render\.alipay\.com\/p\/s\/i\?scheme=/);
     expect(rsaVerify(body, configured.platform.publicKey)).toBe(true);
 
     const queryUnsigned = {

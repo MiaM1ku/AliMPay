@@ -1,4 +1,4 @@
-import type { ApiVersion, CheckoutData, CollectionMode, OrderRecord, OrderStatus } from "../shared/contracts";
+import type { ApiVersion, CheckoutData, CollectionMode, OrderRecord, OrderStatus, TransferLinkLayer } from "../shared/contracts";
 import { getSetting, type AppDatabase } from "./db";
 import { AppError, assert } from "./errors";
 import { centsToMoney, parseMoneyToCents, randomDigits, randomToken, validateCallbackUrl } from "./security";
@@ -336,7 +336,7 @@ export function buildReturnParameters(order: OrderRecord) {
   };
 }
 
-export function createTransferUri(order: OrderRecord, userId: string) {
+export function createTransferUri(order: OrderRecord, userId: string, layer: TransferLinkLayer = 5) {
   const params = new URLSearchParams({
     appId: "09999988",
     actionType: "toAccount",
@@ -345,7 +345,22 @@ export function createTransferUri(order: OrderRecord, userId: string) {
     userId,
     memo: order.out_trade_no,
   });
-  return `alipays://platformapi/startapp?${params.toString()}`;
+  const fifthLayer = `alipays://platformapi/startapp?${params.toString()}`;
+  const fourthLayer = `https://render.alipay.com/p/s/i?scheme=${encodeURIComponent(fifthLayer)}`;
+  const thirdLayer = `alipays://platformapi/startapp?${new URLSearchParams({
+    appId: "20000218",
+    url: fourthLayer,
+  }).toString()}`;
+  const secondLayer = `https://render.alipay.com/p/s/i?scheme=${encodeURIComponent(thirdLayer)}`;
+  const firstLayer = `https://render.alipay.com/p/c/mdeduct-landing?scheme=${encodeURIComponent(secondLayer)}`;
+
+  return {
+    1: firstLayer,
+    2: secondLayer,
+    3: thirdLayer,
+    4: fourthLayer,
+    5: fifthLayer,
+  }[layer];
 }
 
 export function getCheckoutData(database: AppDatabase, token: string, signedReturnUrl?: string | null): CheckoutData | null {
@@ -354,6 +369,7 @@ export function getCheckoutData(database: AppDatabase, token: string, signedRetu
   if (!order) return null;
   const businessQrUrl = getSetting(database, "business_qr_url", "");
   const transferUserId = getSetting(database, "transfer_user_id", "");
+  const transferLinkLayer = getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5);
   return {
     trade_no: order.trade_no,
     out_trade_no: order.out_trade_no,
@@ -365,7 +381,7 @@ export function getCheckoutData(database: AppDatabase, token: string, signedRetu
     created_at: order.created_at,
     expires_at: order.expires_at,
     monitor_until: order.monitor_until,
-    payment_uri: order.collection_mode === "transfer" ? createTransferUri(order, transferUserId) : "",
+    payment_uri: order.collection_mode === "transfer" ? createTransferUri(order, transferUserId, transferLinkLayer) : "",
     business_qr_url: businessQrUrl,
     return_url: order.return_url,
     return_target: signedReturnUrl ?? null,

@@ -254,13 +254,22 @@ export function createAdminRoutes(database: AppDatabase, scanner: PaymentScanner
     const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
     const allowed = new Set([
       "public_base_url", "collection_mode", "transfer_user_id", "alipay_app_id",
-      "alipay_endpoint", "alipay_public_key", "v1_enabled", "v2_enabled",
+      "transfer_link_layer", "alipay_endpoint", "alipay_public_key", "v1_enabled", "v2_enabled",
     ]);
     for (const key of Object.keys(body)) {
       if (!allowed.has(key)) throw new AppError(400, "UNKNOWN_SETTING", `不支持设置项 ${key}`);
     }
     if (typeof body.public_base_url === "string") setSetting(database, "public_base_url", validatePublicBaseUrl(body.public_base_url));
     if (body.collection_mode === "business_qr" || body.collection_mode === "transfer") setSetting(database, "collection_mode", body.collection_mode);
+    if (body.transfer_link_layer !== undefined) {
+      assert(
+        typeof body.transfer_link_layer === "number" && [1, 2, 3, 4, 5].includes(body.transfer_link_layer),
+        400,
+        "INVALID_TRANSFER_LINK_LAYER",
+        "转账链接层级必须为 1–5",
+      );
+      setSetting(database, "transfer_link_layer", body.transfer_link_layer);
+    }
     if (typeof body.transfer_user_id === "string") {
       assert(/^\d{8,32}$/.test(body.transfer_user_id) || body.transfer_user_id === "", 400, "INVALID_TRANSFER_USER", "支付宝用户 ID 应为 8–32 位数字");
       setSetting(database, "transfer_user_id", body.transfer_user_id);

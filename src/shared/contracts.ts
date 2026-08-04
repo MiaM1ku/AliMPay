@@ -1,5 +1,6 @@
 export type ApiVersion = "v1" | "v2";
 export type CollectionMode = "business_qr" | "transfer";
+export type TransferLinkLayer = 1 | 2 | 3 | 4 | 5;
 export type OrderStatus = "pending" | "expired" | "paid" | "late_paid";
 
 export interface OrderRecord {
@@ -59,6 +60,7 @@ export interface PublicSettings {
   setup_completed: boolean;
   public_base_url: string;
   collection_mode: CollectionMode;
+  transfer_link_layer: TransferLinkLayer;
   business_qr_url: string;
   alipay_app_id: string;
   alipay_endpoint: string;

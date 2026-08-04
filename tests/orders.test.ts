@@ -87,6 +87,26 @@ describe("payment state machine", () => {
     expect(correct.matched).toBe(true);
   });
 
+  it("generates every selectable transfer link layer", () => {
+    ({ database } = configuredDatabase("transfer"));
+    const order = createOrder(database, orderInput(1)).order;
+    const layers = {
+      1: createTransferUri(order, "2088000000000000", 1),
+      2: createTransferUri(order, "2088000000000000", 2),
+      3: createTransferUri(order, "2088000000000000", 3),
+      4: createTransferUri(order, "2088000000000000", 4),
+      5: createTransferUri(order, "2088000000000000", 5),
+    };
+
+    expect(new URL(layers[1]).searchParams.get("scheme")).toBe(layers[2]);
+    expect(new URL(layers[2]).searchParams.get("scheme")).toBe(layers[3]);
+    expect(new URL(layers[3]).searchParams.get("url")).toBe(layers[4]);
+    expect(new URL(layers[4]).searchParams.get("scheme")).toBe(layers[5]);
+    expect(layers[4]).toStartWith("https://render.alipay.com/p/s/i?scheme=");
+    expect(layers[5]).toContain("appId=09999988");
+    expect(layers[5]).toContain("memo=ORDER-1");
+  });
+
   it("maps expired to unpaid and late paid to paid externally", () => {
     expect(externalStatus("pending")).toBe(0);
     expect(externalStatus("expired")).toBe(0);

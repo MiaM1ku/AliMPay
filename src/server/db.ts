@@ -150,6 +150,7 @@ const DEFAULT_SETTINGS: Record<string, unknown> = {
   setup_completed: false,
   public_base_url: "",
   collection_mode: "business_qr",
+  transfer_link_layer: 5,
   business_qr_url: "",
   alipay_app_id: "",
   alipay_endpoint: "https://openapi.alipay.com",
