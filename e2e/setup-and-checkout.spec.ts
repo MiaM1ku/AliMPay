@@ -32,8 +32,15 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   await disclosure.getByRole("button", { name: "关闭" }).click();
 
   await page.getByRole("button", { name: "生成商户密钥对" }).click();
-  await expect(page.getByRole("dialog").getByText(/私钥只在本次响应中展示/)).toBeVisible();
-  await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
+  const merchantDisclosure = page.getByRole("dialog");
+  await expect(merchantDisclosure.getByText(/私钥只在本次响应中展示/)).toBeVisible();
+  const merchantPublicKey = await merchantDisclosure.locator("textarea").nth(1).inputValue();
+  expect(merchantPublicKey).toMatch(/^[A-Za-z\d+/]+=*$/);
+  expect(merchantPublicKey).not.toContain("BEGIN PUBLIC KEY");
+  await merchantDisclosure.getByRole("button", { name: "关闭" }).click();
+  await page.getByLabel("导入已有商户公钥").fill(merchantPublicKey);
+  await page.getByRole("button", { name: "导入公钥" }).click();
+  await expect(page.getByText("商户公钥已导入")).toBeVisible();
 
   await page.getByRole("link", { name: "收款配置" }).click();
   await page.getByLabel("应用 ID").fill("2026000000000000");
