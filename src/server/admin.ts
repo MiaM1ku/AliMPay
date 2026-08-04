@@ -267,10 +267,10 @@ export function createAdminRoutes(database: AppDatabase, scanner: PaymentScanner
     if (body.collection_mode === "business_qr" || body.collection_mode === "transfer") setSetting(database, "collection_mode", body.collection_mode);
     if (body.transfer_link_layer !== undefined) {
       assert(
-        typeof body.transfer_link_layer === "number" && [1, 2, 3, 4, 5].includes(body.transfer_link_layer),
+        typeof body.transfer_link_layer === "number" && [1, 2, 3].includes(body.transfer_link_layer),
         400,
         "INVALID_TRANSFER_LINK_LAYER",
-        "转账链接层级必须为 1–5",
+        "转账链接层级必须为 1–3",
       );
       setSetting(database, "transfer_link_layer", body.transfer_link_layer);
     }

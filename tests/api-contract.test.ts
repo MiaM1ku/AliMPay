@@ -24,7 +24,7 @@ describe("EasyPay V1 contract", () => {
   it("creates idempotent orders and requires the key for queries", async () => {
     const configured = configuredDatabase("transfer");
     database = configured.database;
-    setSetting(database, "transfer_link_layer", 4);
+    setSetting(database, "transfer_link_layer", 2);
     const scanner = new PaymentScanner(database, new EmptyProvider());
     const { app } = createApp({ database, scanner, notifications: new NotificationWorker(database, fetch) });
     const unsigned = {
@@ -55,7 +55,7 @@ describe("EasyPay V2 contract", () => {
   it("verifies merchant requests and signs responses and errors", async () => {
     const configured = configuredDatabase("transfer");
     database = configured.database;
-    setSetting(database, "transfer_link_layer", 4);
+    setSetting(database, "transfer_link_layer", 2);
     const scanner = new PaymentScanner(database, new EmptyProvider());
     const { app } = createApp({ database, scanner, notifications: new NotificationWorker(database, fetch) });
     const unsigned = {

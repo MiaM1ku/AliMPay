@@ -1,6 +1,6 @@
 export type ApiVersion = "v1" | "v2";
 export type CollectionMode = "business_qr" | "transfer";
-export type TransferLinkLayer = 1 | 2 | 3 | 4 | 5;
+export type TransferLinkLayer = 1 | 2 | 3;
 export type OrderStatus = "pending" | "expired" | "paid" | "late_paid";
 
 export const PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS = 5;

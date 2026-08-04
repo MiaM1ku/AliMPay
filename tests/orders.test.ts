@@ -74,8 +74,8 @@ describe("payment state machine", () => {
     ({ database } = configuredDatabase("transfer"));
     const order = createOrder(database, orderInput(1)).order;
     expect(order.payable_amount_cents).toBe(100);
-    expect(createTransferUri(order, "2088000000000000")).toContain("appId=09999988");
-    expect(createTransferUri(order, "2088000000000000")).toContain("memo=ORDER-1");
+    expect(createTransferUri(order, "2088000000000000", 1)).toContain("appId=09999988");
+    expect(createTransferUri(order, "2088000000000000", 1)).toContain("memo=ORDER-1");
     const wrong = recordAndMatchPayment(database, {
       accountLogId: "MEMO-WRONG", occurredAt: new Date().toISOString(), direction: "收入",
       amountCents: 100, alipayOrderNo: "", transMemo: "OTHER", otherAccount: "", raw: {},
@@ -95,17 +95,14 @@ describe("payment state machine", () => {
       1: createTransferUri(order, "2088000000000000", 1),
       2: createTransferUri(order, "2088000000000000", 2),
       3: createTransferUri(order, "2088000000000000", 3),
-      4: createTransferUri(order, "2088000000000000", 4),
-      5: createTransferUri(order, "2088000000000000", 5),
     };
 
-    expect(new URL(layers[1]).searchParams.get("scheme")).toBe(layers[2]);
-    expect(new URL(layers[2]).searchParams.get("scheme")).toBe(layers[3]);
-    expect(new URL(layers[3]).searchParams.get("url")).toBe(layers[4]);
-    expect(new URL(layers[4]).searchParams.get("scheme")).toBe(layers[5]);
-    expect(layers[4]).toStartWith("https://render.alipay.com/p/s/i?scheme=");
-    expect(layers[5]).toContain("appId=09999988");
-    expect(layers[5]).toContain("memo=ORDER-1");
+    expect(new URL(layers[3]).searchParams.get("url")).toBe(layers[2]);
+    expect(new URL(layers[2]).searchParams.get("scheme")).toBe(layers[1]);
+    expect(createTransferUri(order, "2088000000000000")).toBe(layers[2]);
+    expect(layers[2]).toStartWith("https://render.alipay.com/p/s/i?scheme=");
+    expect(layers[1]).toContain("appId=09999988");
+    expect(layers[1]).toContain("memo=ORDER-1");
   });
 
   it("returns the configured payment polling interval to checkout", () => {

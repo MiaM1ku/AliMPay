@@ -175,7 +175,7 @@ export function createEasyPayRoutes(database: AppDatabase, scanner: PaymentScann
         result.qrcode = createTransferUri(
           order,
           getSetting(database, "transfer_user_id", ""),
-          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 2),
         );
       }
       return c.json(result);
@@ -249,7 +249,7 @@ export function createEasyPayRoutes(database: AppDatabase, scanner: PaymentScann
         payInfo = createTransferUri(
           order,
           getSetting(database, "transfer_user_id", ""),
-          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+          getSetting<TransferLinkLayer>(database, "transfer_link_layer", 2),
         );
       }
       return c.json(signedV2(database, {

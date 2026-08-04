@@ -97,7 +97,7 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   await expect(page.getByAltText("支付宝经营码")).toBeVisible();
 });
 
-test("mobile navigation is usable", async ({ page }, testInfo) => {
+test("mobile navigation is usable and transfer checkout opens Alipay", async ({ page }, testInfo) => {
   test.skip(testInfo.project.name !== "mobile-chromium", "Mobile-only assertion");
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "管理员登录" })).toBeVisible();
@@ -106,4 +106,54 @@ test("mobile navigation is usable", async ({ page }, testInfo) => {
   await expect(page).toHaveURL(/\/dashboard$/);
   await page.getByRole("button", { name: "打开导航" }).click();
   await expect(page.getByRole("dialog").getByRole("link", { name: "订单" })).toBeVisible();
+
+  await page.getByRole("dialog").getByRole("link", { name: "密钥中心" }).click();
+  await page.getByRole("button", { name: "查看凭据" }).click();
+  const credentials = await page.getByRole("dialog").locator("textarea").inputValue();
+  const pid = credentials.match(/PID=(\d+)/)?.[1] ?? "";
+  const key = credentials.match(/KEY=([^\n]+)/)?.[1] ?? "";
+  expect(pid).not.toBe("");
+  expect(key).not.toBe("");
+  await page.getByRole("dialog").getByRole("button", { name: "关闭" }).click();
+
+  await page.getByRole("button", { name: "打开导航" }).click();
+  await page.getByRole("dialog").getByRole("link", { name: "收款配置" }).click();
+  await page.getByRole("button", { name: /转账备注/ }).click();
+  await page.getByLabel("支付宝用户 ID").fill("2088000000000000");
+  await page.getByLabel("转账链接包裹层级").selectOption("2");
+  await page.getByRole("button", { name: /保存全部配置/ }).click({ force: true });
+  await expect(page.getByText("配置已保存")).toBeVisible();
+
+  await page.route("https://render.alipay.com/**", async (route) => {
+    await route.fulfill({ contentType: "text/html", body: "<title>Alipay opened</title>" });
+  });
+  const unsigned = {
+    pid,
+    type: "alipay",
+    out_trade_no: `MOBILE-${Date.now()}`,
+    notify_url: "https://8.8.8.8/notify",
+    return_url: "https://8.8.8.8/return",
+    name: "Mobile transfer",
+    money: "0.01",
+    clientip: "203.0.113.10",
+    sign_type: "MD5",
+  };
+  const fields = { ...unsigned, sign: md5(unsigned, key) };
+  await page.evaluate((formFields) => {
+    const form = document.createElement("form");
+    form.method = "POST";
+    form.action = "/submit.php";
+    for (const [name, value] of Object.entries(formFields)) {
+      const input = document.createElement("input");
+      input.name = name;
+      input.value = value;
+      form.append(input);
+    }
+    document.body.append(form);
+    form.submit();
+  }, fields);
+
+  await expect(page).toHaveURL(/^https:\/\/render\.alipay\.com\/p\/s\/i\?scheme=/);
+  const transferScheme = new URL(page.url()).searchParams.get("scheme") ?? "";
+  expect(transferScheme).toMatch(/^alipays:\/\/platformapi\/startapp\?appId=09999988/);
 });

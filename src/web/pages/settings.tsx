@@ -113,11 +113,9 @@ function SettingsForm({ initial, refresh }: { initial: SettingsData; refresh: ()
                 onChange={(event) => setTransferLinkLayer(Number(event.target.value) as TransferLinkLayer)}
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
               >
-                <option value={1}>第 1 层 · 完整五层 HTTPS</option>
-                <option value={2}>第 2 层 · 双重包裹 HTTPS</option>
+                <option value={1}>第 1 层 · 原始 alipays Scheme</option>
+                <option value={2}>第 2 层 · 单层支付宝 HTTPS（已验证可用）</option>
                 <option value={3}>第 3 层 · 外层 alipays Scheme</option>
-                <option value={4}>第 4 层 · 单层支付宝 HTTPS（已验证可用）</option>
-                <option value={5}>第 5 层 · 原始 alipays Scheme</option>
               </select>
               <p className="text-xs leading-5 text-muted">配置会同时作用于收银台二维码、V1 qrcode 和 V2 pay_info；更换后新生成或重新打开的支付页面立即生效。</p>
             </div>

@@ -151,7 +151,7 @@ const DEFAULT_SETTINGS: Record<string, unknown> = {
   setup_completed: false,
   public_base_url: "",
   collection_mode: "business_qr",
-  transfer_link_layer: 5,
+  transfer_link_layer: 2,
   payment_poll_interval_seconds: PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS,
   business_qr_url: "",
   alipay_app_id: "",
@@ -174,6 +174,24 @@ export function createDatabase(path = getRuntimeEnv().databasePath): AppDatabase
   database.exec(MIGRATION);
   const now = new Date().toISOString();
   database.query("INSERT OR IGNORE INTO schema_migrations(version, applied_at) VALUES (1, ?)").run(now);
+  const layerMigration = database.query("SELECT 1 FROM schema_migrations WHERE version = 2").get();
+  if (!layerMigration) {
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      const legacyLayer = database.query("SELECT value_json FROM settings WHERE key = 'transfer_link_layer'").get() as { value_json: string } | null;
+      if (legacyLayer) {
+        let oldValue = 4;
+        try { oldValue = Number(JSON.parse(legacyLayer.value_json)); } catch { /* Use the verified HTTPS layer. */ }
+        const migratedValue = oldValue === 5 ? 1 : oldValue === 4 ? 2 : 3;
+        database.query("UPDATE settings SET value_json = ?, updated_at = ? WHERE key = 'transfer_link_layer'").run(JSON.stringify(migratedValue), now);
+      }
+      database.query("INSERT INTO schema_migrations(version, applied_at) VALUES (2, ?)").run(now);
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
+  }
   const insert = database.query("INSERT OR IGNORE INTO settings(key, value_json, is_secret, updated_at) VALUES (?, ?, 0, ?)");
   for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) insert.run(key, JSON.stringify(value), now);
   if (!getSetting<string>(database, "public_base_url", "")) {

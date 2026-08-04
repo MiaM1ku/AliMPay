@@ -1,6 +1,6 @@
 import { CheckCircle2, Clock3, ExternalLink, ShieldCheck, TriangleAlert, WalletCards } from "lucide-react";
 import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
 import { PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS, type CheckoutData } from "@/shared/contracts";
@@ -16,9 +16,17 @@ function countdown(milliseconds: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function isMobileBrowser() {
+  const browserNavigator = navigator as Navigator & { userAgentData?: { mobile?: boolean } };
+  if (browserNavigator.userAgentData?.mobile === true) return true;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(browserNavigator.userAgent) ||
+    (/Macintosh/i.test(browserNavigator.userAgent) && browserNavigator.maxTouchPoints > 1);
+}
+
 export function CheckoutPage() {
   const { token = "" } = useParams();
   const [now, setNow] = useState(Date.now());
+  const mobileRedirectAttempted = useRef(false);
   const { data, error, isLoading } = useSWR<CheckoutData>(`/public-api/checkout/${encodeURIComponent(token)}`, swrFetcher, {
     refreshInterval: (latest) => {
       if (latest && (["paid", "late_paid"].includes(latest.status) || Date.parse(latest.monitor_until) <= Date.now())) return 0;
@@ -35,6 +43,21 @@ export function CheckoutPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 1_000);
     return () => window.clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    if (
+      mobileRedirectAttempted.current ||
+      !data ||
+      data.collection_mode !== "transfer" ||
+      data.status !== "pending" ||
+      !data.payment_uri ||
+      Date.parse(data.expires_at) <= Date.now() ||
+      !isMobileBrowser()
+    ) return;
+
+    mobileRedirectAttempted.current = true;
+    window.location.assign(data.payment_uri);
+  }, [data]);
 
   if (isLoading) return <Loading label="正在读取支付订单" />;
   if (error || !data) return <main className="flex min-h-screen items-center justify-center px-4"><div className="max-w-sm text-center"><TriangleAlert className="mx-auto size-9 text-destructive" /><h1 className="mt-4 text-xl font-semibold">订单不存在</h1><p className="mt-2 text-sm text-muted">链接可能无效，或订单信息无法读取。</p></div></main>;

@@ -39,7 +39,7 @@ export function getPublicSettings(database: AppDatabase): PublicSettings {
     setup_completed: getSetting(database, "setup_completed", false),
     public_base_url: getSetting(database, "public_base_url", getRuntimeEnv().publicBaseUrl),
     collection_mode: getSetting<CollectionMode>(database, "collection_mode", "business_qr"),
-    transfer_link_layer: getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+    transfer_link_layer: getSetting<TransferLinkLayer>(database, "transfer_link_layer", 2),
     payment_poll_interval_seconds: getPaymentPollIntervalSeconds(database),
     business_qr_url: getSetting(database, "business_qr_url", ""),
     alipay_app_id: getSetting(database, "alipay_app_id", ""),

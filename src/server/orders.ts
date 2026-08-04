@@ -336,7 +336,7 @@ export function buildReturnParameters(order: OrderRecord) {
   };
 }
 
-export function createTransferUri(order: OrderRecord, userId: string, layer: TransferLinkLayer = 5) {
+export function createTransferUri(order: OrderRecord, userId: string, layer: TransferLinkLayer = 2) {
   const params = new URLSearchParams({
     appId: "09999988",
     actionType: "toAccount",
@@ -345,21 +345,17 @@ export function createTransferUri(order: OrderRecord, userId: string, layer: Tra
     userId,
     memo: order.out_trade_no,
   });
-  const fifthLayer = `alipays://platformapi/startapp?${params.toString()}`;
-  const fourthLayer = `https://render.alipay.com/p/s/i?scheme=${encodeURIComponent(fifthLayer)}`;
+  const firstLayer = `alipays://platformapi/startapp?${params.toString()}`;
+  const secondLayer = `https://render.alipay.com/p/s/i?scheme=${encodeURIComponent(firstLayer)}`;
   const thirdLayer = `alipays://platformapi/startapp?${new URLSearchParams({
     appId: "20000218",
-    url: fourthLayer,
+    url: secondLayer,
   }).toString()}`;
-  const secondLayer = `https://render.alipay.com/p/s/i?scheme=${encodeURIComponent(thirdLayer)}`;
-  const firstLayer = `https://render.alipay.com/p/c/mdeduct-landing?scheme=${encodeURIComponent(secondLayer)}`;
 
   return {
     1: firstLayer,
     2: secondLayer,
     3: thirdLayer,
-    4: fourthLayer,
-    5: fifthLayer,
   }[layer];
 }
 
@@ -369,7 +365,7 @@ export function getCheckoutData(database: AppDatabase, token: string, signedRetu
   if (!order) return null;
   const businessQrUrl = getSetting(database, "business_qr_url", "");
   const transferUserId = getSetting(database, "transfer_user_id", "");
-  const transferLinkLayer = getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5);
+  const transferLinkLayer = getSetting<TransferLinkLayer>(database, "transfer_link_layer", 2);
   return {
     trade_no: order.trade_no,
     out_trade_no: order.out_trade_no,
