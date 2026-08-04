@@ -2,7 +2,13 @@ import { CheckCircle2, QrCode, Save, Send, Upload } from "lucide-react";
 import { type FormEvent, useState } from "react";
 import useSWR from "swr";
 import { toast } from "sonner";
-import type { CollectionMode, PublicSettings, TransferLinkLayer } from "@/shared/contracts";
+import {
+  PAYMENT_POLL_INTERVAL_MAX_SECONDS,
+  PAYMENT_POLL_INTERVAL_MIN_SECONDS,
+  type CollectionMode,
+  type PublicSettings,
+  type TransferLinkLayer,
+} from "@/shared/contracts";
 import { apiFetch, jsonBody, swrFetcher } from "@/web/api";
 import { PageHeader } from "@/web/components/page-header";
 import { Badge } from "@/web/components/ui/badge";
@@ -31,6 +37,7 @@ function SettingsForm({ initial, refresh }: { initial: SettingsData; refresh: ()
   const [appId, setAppId] = useState(initial.alipay_app_id);
   const [endpoint, setEndpoint] = useState(initial.alipay_endpoint);
   const [alipayPublicKey, setAlipayPublicKey] = useState(initial.alipay_public_key);
+  const [paymentPollInterval, setPaymentPollInterval] = useState(String(initial.payment_poll_interval_seconds));
   const [v1Enabled, setV1Enabled] = useState(initial.v1_enabled);
   const [v2Enabled, setV2Enabled] = useState(initial.v2_enabled);
   const [saving, setSaving] = useState(false);
@@ -49,6 +56,7 @@ function SettingsForm({ initial, refresh }: { initial: SettingsData; refresh: ()
           alipay_app_id: appId,
           alipay_endpoint: endpoint,
           alipay_public_key: alipayPublicKey,
+          payment_poll_interval_seconds: Number(paymentPollInterval),
           v1_enabled: v1Enabled,
           v2_enabled: v2Enabled,
         }),
@@ -125,6 +133,21 @@ function SettingsForm({ initial, refresh }: { initial: SettingsData; refresh: ()
             <div className="space-y-2"><Label htmlFor="endpoint">V3 Endpoint</Label><Input id="endpoint" type="url" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} /></div>
           </div>
           <div className="space-y-2"><Label htmlFor="alipay-public">支付宝公钥</Label><Textarea id="alipay-public" rows={7} value={alipayPublicKey} onChange={(event) => setAlipayPublicKey(event.target.value)} placeholder="-----BEGIN PUBLIC KEY-----" /><p className="text-xs text-muted">这里填写支付宝公钥，不是应用公钥。应用私钥在密钥中心生成或导入。</p></div>
+          <div className="max-w-sm space-y-2">
+            <Label htmlFor="payment-poll-interval">支付轮询间隔（秒）</Label>
+            <Input
+              id="payment-poll-interval"
+              type="number"
+              inputMode="numeric"
+              min={PAYMENT_POLL_INTERVAL_MIN_SECONDS}
+              max={PAYMENT_POLL_INTERVAL_MAX_SECONDS}
+              step={1}
+              required
+              value={paymentPollInterval}
+              onChange={(event) => setPaymentPollInterval(event.target.value)}
+            />
+            <p className="text-xs leading-5 text-muted">允许 1–60 秒，同时控制服务端支付宝扫账、收银台状态查询以及易支付订单查询的刷新节流；保存后无需重启。</p>
+          </div>
           <div className="flex flex-wrap items-center gap-3">
             <Badge variant={initial.alipay_configured ? "success" : "danger"}>{initial.alipay_configured ? "凭据完整" : "凭据不完整"}</Badge>
             <Button type="button" variant="outline" disabled={!initial.alipay_configured} onClick={async () => {

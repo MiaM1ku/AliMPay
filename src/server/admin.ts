@@ -3,7 +3,11 @@ import { resolve } from "node:path";
 import { Hono } from "hono";
 import { getCookie } from "hono/cookie";
 import { z } from "zod";
-import type { OrderStatus } from "../shared/contracts";
+import {
+  PAYMENT_POLL_INTERVAL_MAX_SECONDS,
+  PAYMENT_POLL_INTERVAL_MIN_SECONDS,
+  type OrderStatus,
+} from "../shared/contracts";
 import { OfficialAlipayProvider, type PaymentScanner } from "./alipay";
 import {
   CSRF_COOKIE,
@@ -254,7 +258,7 @@ export function createAdminRoutes(database: AppDatabase, scanner: PaymentScanner
     const body = await c.req.json<Record<string, unknown>>().catch(() => ({} as Record<string, unknown>));
     const allowed = new Set([
       "public_base_url", "collection_mode", "transfer_user_id", "alipay_app_id",
-      "transfer_link_layer", "alipay_endpoint", "alipay_public_key", "v1_enabled", "v2_enabled",
+      "transfer_link_layer", "payment_poll_interval_seconds", "alipay_endpoint", "alipay_public_key", "v1_enabled", "v2_enabled",
     ]);
     for (const key of Object.keys(body)) {
       if (!allowed.has(key)) throw new AppError(400, "UNKNOWN_SETTING", `不支持设置项 ${key}`);
@@ -269,6 +273,18 @@ export function createAdminRoutes(database: AppDatabase, scanner: PaymentScanner
         "转账链接层级必须为 1–5",
       );
       setSetting(database, "transfer_link_layer", body.transfer_link_layer);
+    }
+    if (body.payment_poll_interval_seconds !== undefined) {
+      assert(
+        typeof body.payment_poll_interval_seconds === "number" &&
+          Number.isInteger(body.payment_poll_interval_seconds) &&
+          body.payment_poll_interval_seconds >= PAYMENT_POLL_INTERVAL_MIN_SECONDS &&
+          body.payment_poll_interval_seconds <= PAYMENT_POLL_INTERVAL_MAX_SECONDS,
+        400,
+        "INVALID_PAYMENT_POLL_INTERVAL",
+        `支付轮询间隔必须为 ${PAYMENT_POLL_INTERVAL_MIN_SECONDS}–${PAYMENT_POLL_INTERVAL_MAX_SECONDS} 秒的整数`,
+      );
+      setSetting(database, "payment_poll_interval_seconds", body.payment_poll_interval_seconds);
     }
     if (typeof body.transfer_user_id === "string") {
       assert(/^\d{8,32}$/.test(body.transfer_user_id) || body.transfer_user_id === "", 400, "INVALID_TRANSFER_USER", "支付宝用户 ID 应为 8–32 位数字");

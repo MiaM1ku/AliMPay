@@ -74,7 +74,7 @@ export function DocsPage() {
           <Card>
             <CardHeader><CardTitle>订单查询与通知</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm leading-6 text-muted">
-              <p>订单查询优先返回本地状态。若订单仍在 10 分钟监控窗口内、且最近一次扫描超过 5 秒，会合并触发一次支付宝查询，最多等待约 3 秒。</p>
+              <p>订单查询优先返回本地状态。若订单仍在 10 分钟监控窗口内、且最近一次扫描已超过后台配置的支付轮询间隔，会合并触发一次支付宝查询，最多等待约 3 秒。</p>
               <p>异步通知使用 GET。商户必须校验签名和 <code className="font-mono">trade_status=TRADE_SUCCESS</code>，处理成功后以 2xx 响应返回纯文本 <code className="font-mono">success</code>。</p>
               <p>收银台 5 分钟过期；第 5–10 分钟发现的支付记为迟到支付，但外部接口仍返回 <code className="font-mono">status=1</code> 并正常通知。</p>
             </CardContent>

@@ -1,10 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
-import type { AppDatabase } from "../src/server/db";
+import { setSetting, type AppDatabase } from "../src/server/db";
 import {
   createTransferUri,
   createOrder,
   externalStatus,
   getActiveOrders,
+  getCheckoutData,
   getOrderById,
   recordAndMatchPayment,
 } from "../src/server/orders";
@@ -105,6 +106,13 @@ describe("payment state machine", () => {
     expect(layers[4]).toStartWith("https://render.alipay.com/p/s/i?scheme=");
     expect(layers[5]).toContain("appId=09999988");
     expect(layers[5]).toContain("memo=ORDER-1");
+  });
+
+  it("returns the configured payment polling interval to checkout", () => {
+    ({ database } = configuredDatabase("transfer"));
+    setSetting(database, "payment_poll_interval_seconds", 12);
+    const order = createOrder(database, orderInput(1)).order;
+    expect(getCheckoutData(database, order.checkout_token)?.payment_poll_interval_seconds).toBe(12);
   });
 
   it("maps expired to unpaid and late paid to paid externally", () => {

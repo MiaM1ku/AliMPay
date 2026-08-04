@@ -1,6 +1,6 @@
 import { AlipaySdk } from "alipay-sdk";
 import type { OrderRecord } from "../shared/contracts";
-import { getSecret } from "./config";
+import { getPaymentPollIntervalSeconds, getSecret } from "./config";
 import { audit, getSetting, type AppDatabase } from "./db";
 import { AppError } from "./errors";
 import { getActiveOrders, recordAndMatchPayment, type AccountLogEvent } from "./orders";
@@ -141,7 +141,8 @@ export class PaymentScanner {
   start() {
     if (this.timer) return;
     this.timer = setInterval(() => {
-      if (getActiveOrders(this.database).length > 0 && Date.now() - this.lastCompletedAt >= 5_000) {
+      const pollIntervalMs = getPaymentPollIntervalSeconds(this.database) * 1_000;
+      if (getActiveOrders(this.database).length > 0 && Date.now() - this.lastCompletedAt >= pollIntervalMs) {
         void this.scanNow("scheduler").catch((error) => {
           console.error(JSON.stringify({ level: "error", event: "scan_failed", message: error instanceof Error ? error.message : String(error) }));
         });
@@ -156,7 +157,7 @@ export class PaymentScanner {
 
   async ensureFresh(order: OrderRecord) {
     if (!["pending", "expired"].includes(order.status) || Date.parse(order.monitor_until) <= Date.now()) return;
-    if (Date.now() - this.lastCompletedAt < 5_000) return;
+    if (Date.now() - this.lastCompletedAt < getPaymentPollIntervalSeconds(this.database) * 1_000) return;
     await Promise.race([
       this.scanNow("order_query"),
       new Promise<void>((resolve) => setTimeout(resolve, 3_000)),

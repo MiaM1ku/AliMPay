@@ -25,7 +25,7 @@ describe("admin session and CSRF", () => {
     `).run(crypto.randomUUID(), userId, sha256("session-token"), new Date(Date.now() + 60_000).toISOString(), now, now);
     const scanner = new PaymentScanner(database, new EmptyProvider());
     const { app } = createApp({ database, scanner, notifications: new NotificationWorker(database, fetch) });
-    const payload = JSON.stringify({ v1_enabled: false, transfer_link_layer: 4 });
+    const payload = JSON.stringify({ v1_enabled: false, transfer_link_layer: 4, payment_poll_interval_seconds: 2 });
     expect((await app.request("http://localhost/admin-api/settings")).status).toBe(401);
 
     const baseHeaders = { cookie: "alimpay_session=session-token; alimpay_csrf=csrf-token", "content-type": "application/json" };
@@ -33,7 +33,9 @@ describe("admin session and CSRF", () => {
     expect((await app.request("http://localhost/admin-api/settings", { method: "PUT", headers: { ...baseHeaders, "x-csrf-token": "csrf-token", origin: "https://evil.example" }, body: payload })).status).toBe(403);
     const accepted = await app.request("http://localhost/admin-api/settings", { method: "PUT", headers: { ...baseHeaders, "x-csrf-token": "csrf-token", origin: "http://localhost" }, body: payload });
     expect(accepted.status).toBe(200);
-    expect((await accepted.json() as { settings: { transfer_link_layer: number } }).settings.transfer_link_layer).toBe(4);
+    const acceptedBody = await accepted.json() as { settings: { transfer_link_layer: number; payment_poll_interval_seconds: number } };
+    expect(acceptedBody.settings.transfer_link_layer).toBe(4);
+    expect(acceptedBody.settings.payment_poll_interval_seconds).toBe(2);
 
     const invalid = await app.request("http://localhost/admin-api/settings", {
       method: "PUT",
@@ -41,5 +43,12 @@ describe("admin session and CSRF", () => {
       body: JSON.stringify({ transfer_link_layer: 6 }),
     });
     expect(invalid.status).toBe(400);
+
+    const invalidPollInterval = await app.request("http://localhost/admin-api/settings", {
+      method: "PUT",
+      headers: { ...baseHeaders, "x-csrf-token": "csrf-token", origin: "http://localhost" },
+      body: JSON.stringify({ payment_poll_interval_seconds: 1.5 }),
+    });
+    expect(invalidPollInterval.status).toBe(400);
   });
 });

@@ -1,4 +1,11 @@
-import type { CollectionMode, PublicSettings, TransferLinkLayer } from "../shared/contracts";
+import {
+  PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS,
+  PAYMENT_POLL_INTERVAL_MAX_SECONDS,
+  PAYMENT_POLL_INTERVAL_MIN_SECONDS,
+  type CollectionMode,
+  type PublicSettings,
+  type TransferLinkLayer,
+} from "../shared/contracts";
 import { getSetting, setSetting, type AppDatabase } from "./db";
 import { getRuntimeEnv } from "./env";
 import { decryptSecret, encryptSecret } from "./security";
@@ -19,6 +26,13 @@ export function setSecret(database: AppDatabase, key: SecretSettingKey, value: s
   setSetting(database, key, value ? encryptSecret(value, getRuntimeEnv().masterKey) : "", true);
 }
 
+export function getPaymentPollIntervalSeconds(database: AppDatabase) {
+  const value = getSetting<number>(database, "payment_poll_interval_seconds", PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS);
+  return Number.isInteger(value) && value >= PAYMENT_POLL_INTERVAL_MIN_SECONDS && value <= PAYMENT_POLL_INTERVAL_MAX_SECONDS
+    ? value
+    : PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS;
+}
+
 export function getPublicSettings(database: AppDatabase): PublicSettings {
   const v1Key = getSecret(database, "v1_key");
   return {
@@ -26,6 +40,7 @@ export function getPublicSettings(database: AppDatabase): PublicSettings {
     public_base_url: getSetting(database, "public_base_url", getRuntimeEnv().publicBaseUrl),
     collection_mode: getSetting<CollectionMode>(database, "collection_mode", "business_qr"),
     transfer_link_layer: getSetting<TransferLinkLayer>(database, "transfer_link_layer", 5),
+    payment_poll_interval_seconds: getPaymentPollIntervalSeconds(database),
     business_qr_url: getSetting(database, "business_qr_url", ""),
     alipay_app_id: getSetting(database, "alipay_app_id", ""),
     alipay_endpoint: getSetting(database, "alipay_endpoint", "https://openapi.alipay.com"),

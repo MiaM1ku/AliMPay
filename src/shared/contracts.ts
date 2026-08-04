@@ -3,6 +3,10 @@ export type CollectionMode = "business_qr" | "transfer";
 export type TransferLinkLayer = 1 | 2 | 3 | 4 | 5;
 export type OrderStatus = "pending" | "expired" | "paid" | "late_paid";
 
+export const PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS = 5;
+export const PAYMENT_POLL_INTERVAL_MIN_SECONDS = 1;
+export const PAYMENT_POLL_INTERVAL_MAX_SECONDS = 60;
+
 export interface OrderRecord {
   id: string;
   trade_no: string;
@@ -61,6 +65,7 @@ export interface PublicSettings {
   public_base_url: string;
   collection_mode: CollectionMode;
   transfer_link_layer: TransferLinkLayer;
+  payment_poll_interval_seconds: number;
   business_qr_url: string;
   alipay_app_id: string;
   alipay_endpoint: string;
@@ -85,6 +90,7 @@ export interface CheckoutData {
   created_at: string;
   expires_at: string;
   monitor_until: string;
+  payment_poll_interval_seconds: number;
   payment_uri: string;
   business_qr_url: string;
   return_url: string | null;

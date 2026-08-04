@@ -3,7 +3,7 @@ import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import useSWR from "swr";
-import type { CheckoutData } from "@/shared/contracts";
+import { PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS, type CheckoutData } from "@/shared/contracts";
 import { swrFetcher } from "@/web/api";
 import { Badge } from "@/web/components/ui/badge";
 import { Button } from "@/web/components/ui/button";
@@ -20,7 +20,10 @@ export function CheckoutPage() {
   const { token = "" } = useParams();
   const [now, setNow] = useState(Date.now());
   const { data, error, isLoading } = useSWR<CheckoutData>(`/public-api/checkout/${encodeURIComponent(token)}`, swrFetcher, {
-    refreshInterval: (latest) => latest && ["paid", "late_paid"].includes(latest.status) || (latest && Date.parse(latest.monitor_until) <= Date.now()) ? 0 : 5_000,
+    refreshInterval: (latest) => {
+      if (latest && (["paid", "late_paid"].includes(latest.status) || Date.parse(latest.monitor_until) <= Date.now())) return 0;
+      return (latest?.payment_poll_interval_seconds ?? PAYMENT_POLL_INTERVAL_DEFAULT_SECONDS) * 1_000;
+    },
     shouldRetryOnError: false,
   });
   const { data: generatedQr } = useSWR(
@@ -75,7 +78,7 @@ export function CheckoutPage() {
 
           <div className="space-y-4">
             <Card><CardContent className="px-5 py-5"><h2 className="text-sm font-semibold">订单信息</h2><dl className="mt-4 space-y-4"><div><dt className="text-xs text-muted">商户订单号</dt><dd className="mt-1 break-all font-mono text-xs">{data.out_trade_no}</dd></div><div><dt className="text-xs text-muted">平台订单号</dt><dd className="mt-1 break-all font-mono text-xs">{data.trade_no}</dd></div><div><dt className="text-xs text-muted">创建时间</dt><dd className="mt-1 text-sm">{formatDate(data.created_at)}</dd></div><div><dt className="text-xs text-muted">确认窗口</dt><dd className="mt-1 font-mono text-sm">{countdown(Date.parse(data.monitor_until) - now)}</dd></div></dl></CardContent></Card>
-            <Card><CardContent className="px-5 py-5 text-xs leading-5 text-muted"><p>页面每 5 秒查询一次本地订单状态。只有存在待确认订单时，服务器才会合并请求支付宝账务接口。</p><p className="mt-3">切勿重复支付；支付完成后请等待页面自动确认。</p></CardContent></Card>
+            <Card><CardContent className="px-5 py-5 text-xs leading-5 text-muted"><p>页面每 {data.payment_poll_interval_seconds} 秒查询一次本地订单状态。只有存在待确认订单时，服务器才会合并请求支付宝账务接口。</p><p className="mt-3">切勿重复支付；支付完成后请等待页面自动确认。</p></CardContent></Card>
           </div>
         </div>
       </div>

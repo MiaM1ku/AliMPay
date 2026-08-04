@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "bun:test";
 import { PaymentScanner, type AccountLogPage, type AccountLogProvider } from "../src/server/alipay";
-import type { AppDatabase } from "../src/server/db";
+import { setSetting, type AppDatabase } from "../src/server/db";
 import { createOrder, getOrderById } from "../src/server/orders";
 import { configuredDatabase, orderInput } from "./helpers";
 
@@ -51,6 +51,23 @@ describe("shared payment scanner", () => {
     const scanner = new PaymentScanner(database, provider);
     await Promise.all([scanner.scanNow("one"), scanner.scanNow("two"), scanner.scanNow("three")]);
     expect(provider.calls).toBe(1);
+  });
+
+  it("applies polling interval changes without restarting the scanner", async () => {
+    ({ database } = configuredDatabase());
+    const order = createOrder(database, orderInput(1)).order;
+    const provider = new FakeProvider();
+    const scanner = new PaymentScanner(database, provider);
+    await scanner.scanNow();
+    (scanner as unknown as { lastCompletedAt: number }).lastCompletedAt = Date.now() - 2_000;
+
+    setSetting(database, "payment_poll_interval_seconds", 3);
+    await scanner.ensureFresh(order);
+    expect(provider.calls).toBe(1);
+
+    setSetting(database, "payment_poll_interval_seconds", 1);
+    await scanner.ensureFresh(order);
+    expect(provider.calls).toBe(2);
   });
 
   it("does not query after the 10-minute monitor deadline", async () => {

@@ -3,7 +3,7 @@ import { getSetting, type AppDatabase } from "./db";
 import { AppError, assert } from "./errors";
 import { centsToMoney, parseMoneyToCents, randomDigits, randomToken, validateCallbackUrl } from "./security";
 import { getRuntimeEnv } from "./env";
-import { getSecret } from "./config";
+import { getPaymentPollIntervalSeconds, getSecret } from "./config";
 
 export interface CreateOrderInput {
   pid: string;
@@ -381,6 +381,7 @@ export function getCheckoutData(database: AppDatabase, token: string, signedRetu
     created_at: order.created_at,
     expires_at: order.expires_at,
     monitor_until: order.monitor_until,
+    payment_poll_interval_seconds: getPaymentPollIntervalSeconds(database),
     payment_uri: order.collection_mode === "transfer" ? createTransferUri(order, transferUserId, transferLinkLayer) : "",
     business_qr_url: businessQrUrl,
     return_url: order.return_url,

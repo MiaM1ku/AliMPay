@@ -56,6 +56,7 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   await page.getByRole("link", { name: "收款配置" }).click();
   await page.getByLabel("应用 ID").fill("2026000000000000");
   await page.getByLabel("支付宝公钥").fill(publicKey);
+  await page.getByLabel("支付轮询间隔（秒）").fill("2");
   await page.getByLabel("经营码图片").setInputFiles({
     name: "business-qr.png",
     mimeType: "image/png",
@@ -64,6 +65,8 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   await expect(page.getByText("已上传", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: /保存全部配置/ }).click();
   await expect(page.getByText("配置已保存")).toBeVisible();
+  await page.reload();
+  await expect(page.getByLabel("支付轮询间隔（秒）")).toHaveValue("2");
 
   await page.getByRole("link", { name: "密钥中心" }).click();
   await page.getByRole("button", { name: "查看凭据" }).click();
