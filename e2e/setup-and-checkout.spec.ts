@@ -26,6 +26,9 @@ test("first-run setup, key generation, QR upload and public checkout", async ({ 
   const disclosure = page.getByRole("dialog");
   await expect(disclosure.getByText("支付宝应用密钥")).toBeVisible();
   const publicKey = await disclosure.locator("textarea").nth(1).inputValue();
+  expect(publicKey).toMatch(/^[A-Za-z\d+/]+=*$/);
+  expect(publicKey).not.toContain("BEGIN PUBLIC KEY");
+  expect(publicKey).not.toContain("\n");
   await disclosure.getByRole("button", { name: "关闭" }).click();
 
   await page.getByRole("button", { name: "生成商户密钥对" }).click();

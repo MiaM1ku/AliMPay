@@ -24,6 +24,8 @@ interface KeyDisclosure {
   title: string;
   privateKey?: string;
   publicKey?: string;
+  publicKeyLabel?: string;
+  publicKeyHelp?: string;
   oneTime?: boolean;
 }
 
@@ -42,6 +44,13 @@ function download(name: string, value: string) {
   URL.revokeObjectURL(url);
 }
 
+function toAlipayUploadPublicKey(value: string) {
+  return value
+    .replace(/-----BEGIN PUBLIC KEY-----/g, "")
+    .replace(/-----END PUBLIC KEY-----/g, "")
+    .replace(/\s+/g, "");
+}
+
 function DisclosureDialog({ value, onClose }: { value: KeyDisclosure | null; onClose: () => void }) {
   return (
     <Dialog open={Boolean(value)} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -49,7 +58,7 @@ function DisclosureDialog({ value, onClose }: { value: KeyDisclosure | null; onC
         <DialogTitle>{value?.title}</DialogTitle>
         <DialogDescription>{value?.oneTime ? "私钥只在本次响应中展示，关闭前请复制并安全保存。" : "请将密钥存放在受控的密码管理器中。"}</DialogDescription>
         {value?.privateKey ? <div className="mt-4 space-y-2"><div className="text-xs font-medium">私钥（PKCS#8）</div><Textarea value={value.privateKey} readOnly rows={9} /><div className="flex gap-2"><CopyButton value={value.privateKey} label="复制私钥" /><Button variant="outline" size="sm" onClick={() => download("private-key.pem", value.privateKey!)}><Download />下载</Button></div></div> : null}
-        {value?.publicKey ? <div className="mt-4 space-y-2"><div className="text-xs font-medium">公钥（SPKI）</div><Textarea value={value.publicKey} readOnly rows={6} /><CopyButton value={value.publicKey} label="复制公钥" /></div> : null}
+        {value?.publicKey ? <div className="mt-4 space-y-2"><div className="text-xs font-medium">{value.publicKeyLabel ?? "公钥（SPKI）"}</div><Textarea value={value.publicKey} readOnly rows={6} /><CopyButton value={value.publicKey} label="复制公钥" />{value.publicKeyHelp ? <p className="text-xs leading-5 text-muted">{value.publicKeyHelp}</p> : null}</div> : null}
       </DialogContent>
     </Dialog>
   );
@@ -82,6 +91,7 @@ export function KeyCenterPage() {
   const [alipayPrivateImport, setAlipayPrivateImport] = useState("");
   const [merchantPublicImport, setMerchantPublicImport] = useState("");
   if (isLoading || !data) return <Loading label="正在读取密钥状态" />;
+  const alipayUploadPublicKey = toAlipayUploadPublicKey(data.alipay_app_public_key);
 
   async function call<T>(path: string, title: string) {
     try {
@@ -156,10 +166,16 @@ export function KeyCenterPage() {
         <Card>
           <CardHeader><div className="flex items-center justify-between"><CardTitle>支付宝应用密钥</CardTitle><Badge variant={data.has_alipay_private_key ? "success" : "danger"}>{data.has_alipay_private_key ? "应用私钥已保存" : "未配置"}</Badge></div><CardDescription>应用私钥签名支付宝 V3 请求；应用公钥需上传到支付宝开放平台。</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            {data.alipay_app_public_key ? <><Textarea value={data.alipay_app_public_key} readOnly rows={5} /><CopyButton value={data.alipay_app_public_key} label="复制应用公钥" /></> : null}
+            {alipayUploadPublicKey ? <><div className="text-xs font-medium">应用公钥（支付宝上传格式）</div><Textarea value={alipayUploadPublicKey} readOnly rows={5} /><CopyButton value={alipayUploadPublicKey} label="复制应用公钥" /><p className="text-xs leading-5 text-muted">已自动去掉 PEM 头尾和换行，请把复制的整行内容填写到支付宝开放平台的应用公钥配置中。</p></> : null}
             <Button onClick={async () => {
               const result = await call<{ private_key: string; public_key: string }>("/admin-api/keys/alipay/generate", "支付宝应用密钥已生成");
-              if (result) setDisclosure({ title: "支付宝应用密钥", privateKey: result.private_key, publicKey: result.public_key });
+              if (result) setDisclosure({
+                title: "支付宝应用密钥",
+                privateKey: result.private_key,
+                publicKey: toAlipayUploadPublicKey(result.public_key),
+                publicKeyLabel: "应用公钥（支付宝上传格式）",
+                publicKeyHelp: "已自动去掉 PEM 头尾和换行，可直接填写到支付宝开放平台的应用公钥配置中。",
+              });
             }}><KeyRound />生成应用密钥</Button>
             <div className="border-t pt-4"><div className="mb-2 text-xs font-medium">或导入已有应用私钥</div><Textarea value={alipayPrivateImport} onChange={(event) => setAlipayPrivateImport(event.target.value)} rows={6} placeholder="-----BEGIN PRIVATE KEY-----" /><Button className="mt-2" variant="outline" disabled={!alipayPrivateImport} onClick={async () => {
               try { await apiFetch("/admin-api/keys/alipay/private", { method: "PUT", ...jsonBody({ private_key: alipayPrivateImport }) }); toast.success("应用私钥已导入"); setAlipayPrivateImport(""); await mutate(); }
